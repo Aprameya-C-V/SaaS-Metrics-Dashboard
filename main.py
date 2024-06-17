@@ -7,7 +7,7 @@ from fpdf import FPDF
 from sklearn.linear_model import LinearRegression
 
 # Title of the dashboard
-st.title("SaaS Metrics Dashboard")
+st.title("Comprehensive SaaS Metrics Dashboard")
 
 # Generate Synthetic Data
 def generate_synthetic_data():
@@ -61,18 +61,18 @@ filtered_data = data[
     (data['Start Date'] >= pd.to_datetime(start_date)) & (data['End Date'] <= pd.to_datetime(end_date))]
 
 # Calculate MRR
-filtered_data.loc[:, 'Month'] = filtered_data['Start Date'].dt.to_period('M')
+filtered_data['Month'] = filtered_data['Start Date'].dt.to_period('M')
 mrr_data = filtered_data.groupby('Month').agg({'Amount': 'sum'}).reset_index()
 mrr_data['Month'] = mrr_data['Month'].dt.to_timestamp()
 
 # Calculate churn rate
 churn_data = filtered_data[filtered_data['Status'] == 'canceled']
-churn_data.loc[:, 'Churn Month'] = churn_data['End Date'].dt.to_period('M')
+churn_data['Churn Month'] = churn_data['End Date'].dt.to_period('M')
 churn_rate = churn_data.groupby('Churn Month').size().reset_index(name='Churn Count')
 churn_rate['Churn Month'] = churn_rate['Churn Month'].dt.to_timestamp()
 
 # Calculate CLTV
-filtered_data.loc[:, 'Lifetime Value'] = filtered_data['Amount'] * 12  # Assuming a simple yearly value
+filtered_data['Lifetime Value'] = filtered_data['Amount'] * 12  # Assuming a simple yearly value
 cltv = filtered_data['Lifetime Value'].mean()
 
 # Additional Metrics
@@ -174,58 +174,22 @@ class PDF(FPDF):
     def chapter_title(self, title):
         self.set_font('Arial', 'B', 12)
         self.cell(0, 10, title, 0, 1, 'L')
+        self.ln(10)
 
     def chapter_body(self, body):
         self.set_font('Arial', '', 12)
         self.multi_cell(0, 10, body)
+        self.ln()
 
-def create_pdf(mrr_data, churn_rate, customer_growth, forecast_data, analysis_points, figs):
+if st.button('Generate PDF Report'):
     pdf = PDF()
     pdf.add_page()
-
-    pdf.chapter_title("Monthly Recurring Revenue (MRR)")
-    mrr_text = mrr_data.to_string(index=False)
-    pdf.chapter_body(mrr_text)
-
-    pdf.add_page()
-    pdf.chapter_title("Churn Rate")
-    churn_text = churn_rate.to_string(index=False)
-    pdf.chapter_body(churn_text)
-
-    pdf.add_page()
-    pdf.chapter_title("Customer Growth Over Time")
-    growth_text = customer_growth.to_string(index=False)
-    pdf.chapter_body(growth_text)
-
-    pdf.add_page()
-    pdf.chapter_title("Revenue Forecast")
-    forecast_text = forecast_data.to_string(index=False)
-    pdf.chapter_body(forecast_text)
-
-    pdf.add_page()
-    pdf.chapter_title("5-Point Analysis")
+    pdf.chapter_title('Key Metrics')
     for point in analysis_points:
         pdf.chapter_body(point)
 
-    # Add graphs to the PDF
-    for fig in figs:
-        pdf.add_page()
-        pdf.image(fig, x=10, y=20, w=180)
+    pdf_output = 'saas_metrics_report.pdf'
+    pdf.output(pdf_output)
 
-    return pdf
-
-# Save Plotly figures as images
-figs = []
-for fig in [fig_mrr, fig_churn, fig_plan, fig_growth, fig_forecast, fig_region]:
-    fig_img = f"{fig.layout.title.text}.png"
-    fig.write_image(fig_img)
-    figs.append(fig_img)
-
-# PDF Download Button
-st.markdown('<div id="download"></div>', unsafe_allow_html=True)
-if st.button("Download Report"):
-    pdf = create_pdf(mrr_data, churn_rate, customer_growth, forecast_data, analysis_points, figs)
-    pdf_file = "saas_metrics_report.pdf"
-    pdf.output(pdf_file)
-    with open(pdf_file, "rb") as f:
-        st.download_button("Download PDF", f, file_name=pdf_file)
+    with open(pdf_output, 'rb') as file:
+        st.download_button(label="Download PDF Report", data=file, file_name=pdf_output, mime='application/pdf')
